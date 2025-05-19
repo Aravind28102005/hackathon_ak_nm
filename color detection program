@@ -1,0 +1,92 @@
+import cv2
+import pandas as pd
+import os
+
+# Default colors.csv data (in case the file is not found)
+default_colors_csv = """
+color,hex,R,G,B
+air_force_blue_raf,#5d8aa8,93,138,168
+air_force_blue_usaf, #00308f,0,48,143
+air_superiority_blue, #72a0c1,114,160,193
+alabama_crimson, #a32638,163,38,56
+alice_blue, #f0f8ff,240,248,255
+alizarin_crimson, #e32636,227,38,54
+alloy_orange, #c46210,196,98,16
+almond, #efdecd,239,222,205
+amaranth, #e52b50,229,43,80
+amber, #ffbf00,255,191,0
+amber_sae_ece, #ff7e00,255,126,0
+american_rose, #ff033e,255,3,62
+amethyst, #9966cc,153,102,204
+android_green, #a4c639,164,198,57
+anti_flash_white, #f2f3f4,242,243,244
+antique_brass, #cd9575,205,149,117
+antique_bronze, #665d1e,102,93,30
+antique_fuchsia, #915c83,145,92,131
+antique_ruby, #841b2d,132,27,45
+antique_white, #faebd7,250,235,215
+"""
+
+
+def get_color_name(R, G, B, colors_df):
+    minimum = float('inf')
+    cname = ""
+    for i in range(len(colors_df)):
+        d = abs(R - int(colors_df.loc[i, "R"])) + abs(G - int(colors_df.loc[i, "G"])) + abs(B - int(colors_df.loc[i, "B"]))
+        if d <= minimum:
+            minimum = d
+            cname = colors_df.loc[i, "color"]
+    return cname
+
+
+def draw_function(event, x, y, flags, param):
+    global b, g, r, xpos, ypos, clicked, color_name
+    if event == cv2.EVENT_LBUTTONDOWN:
+        clicked = True
+        xpos = x
+        ypos = y
+        b, g, r = img[y, x]
+        color_name = get_color_name(r, g, b, colors_df)
+
+
+# Main execution
+try:
+    # Try to load colors.csv
+    csv_path = 'colors.csv'
+    colors_df = pd.read_csv(csv_path, names=["color", "hex", "R", "G", "B"], header=None)
+except FileNotFoundError:
+    # If colors.csv is not found, use the default data
+    print("colors.csv not found. Using default color data.")
+    from io import StringIO
+    colors_df = pd.read_csv(StringIO(default_colors_csv))
+
+file_path = input("Enter the path to your image file: ")
+
+if not file_path or not os.path.exists(file_path):
+    print("Invalid file path. Exiting.")
+    exit()
+
+img = cv2.imread(file_path)
+
+# Check if image was loaded successfully
+if img is None:
+    print(f"Error: Could not load image from {file_path}. Please check the file path and format.")
+    exit()
+
+img = cv2.resize(img, (800,600))  # Optional: Resize for better display
+
+cv2.namedWindow('Color Detector')
+cv2.setMouseCallback('Color Detector', draw_function)
+
+while True:
+    frame = img.copy()
+    if clicked:
+        cv2.rectangle(frame, (20, 20), (750, 60), (int(b), int(g), int(r)), -1)
+        text = f'{color_name} R={r} G={g} B={b}'
+        cv2.putText(frame, text, (30, 50), 2, 0.8, (255, 255, 255) if r + g + b < 600 else (0, 0, 0), 2)
+    cv2.imshow("Color Detector", frame)
+
+    if cv2.waitKey(20) & 0xFF == 27:  # Press 'Esc' to exit
+        break
+
+cv2.destroyAllWindows()
